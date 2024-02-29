@@ -1,89 +1,62 @@
-const http = require('http');
-const express = require('express');
+const express = require("express");
 const app = express();
-const Expense = require('./models/expense');
-var cors  = require('cors');
-const Sequelize = require('sequelize');
-const sequelize = require('./util/database')
-const bodyParser = require('body-parser');
-const { start } = require('repl');
 
-app.use(cors());
+const bodyParser = require("body-parser");
+const path = require("path");
+const dotenv = require("dotenv");
+dotenv.config();
+const sequelize = require("./util/database");
+const helmet = require("helmet");
+const favicon = require("serve-favicon");
 
+const userRouter = require("./router/userRouter");
+const expenseRouter = require("./router/expenseRouter");
+const purchaseMembershipRouter = require("./router/purchaseMembershipRouter");
+const leaderboardRouter = require("./router/leaderboardRouter");
+const resetPasswordRouter = require("./router/resetPasswordRouter");
+const reportsRouter = require("./router/reportsRouter");
+const User = require("./models/userModel");
+const Expense = require("./models/expenseModel");
+const Order = require("./models/ordersModel");
+const ResetPassword = require("./models/resetPasswordModel");
+
+app.use(favicon(__dirname + "/public/images/favicon.ico"));
+app.use(express.static("public"));
+app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
-app.post('/add-users', async (req,res,next) =>{
-    try{
-        if (!/^\d+$/.test(req.body.amount)){
-            throw new Error('invalid amount entered')
-        };
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+  })
+);
 
-        if(!req.body.amount){
-            throw new Error('amount required')
-        };
+app.use("/", userRouter);
+app.use("/user", userRouter);
+app.use("/homePage", expenseRouter);
+app.use("/expense", expenseRouter);
+app.use("/purchase", purchaseMembershipRouter);
+app.use("/premium", leaderboardRouter);
+app.use("/password", resetPasswordRouter);
+app.use("/reports", reportsRouter);
 
-        if(!req.body.productName){
-            throw new Error('product name required')
-        }
+User.hasMany(Expense);
+Expense.belongsTo(User);
 
-        const amount = req.body.amount;
-        const productName = req.body.productName;
+User.hasMany(Order);
+Order.belongsTo(User);
 
-        const data  = await Expense.create({
-            amount : amount,
-            productName : productName
-        });
+ResetPassword.belongsTo(User);
+User.hasMany(ResetPassword);
 
-        res.status(201).json({userDetails : data});
-
-    }catch(error){
-            res.status(500).json({error: error.message})
-        
-    }
-    
-});
-
-app.get('/add-users',async(req,res,next) =>{
-
-    try{
-        const users = await Expense.findAll();
-        res.status(200).json({allUserOnScreen : users})
-    }catch(error){
-        res.status(500).json({error : error.message})
-    };
-
-});
-
-app.delete('/delete-user/:userId', async(req,res,next)=>{
-
-    const userId = req.params.userId
-
-    try{
-        const user = await Expense.findByPk(userId);
-        if (!user){
-            throw new Error('userId not found');
-        }
-
-        await user.destroy();
-        res.status(200).json({error : 'user deleted successfully'})
-
-    }catch(error){
-
-        res.status(500).json({error  : error.message})
-       
-    }
-
-});
-
-
-sequelize.sync()
-    .then(user =>{
-        //console.log(user);
-        app.listen(4000);
-        console.log('server is running')
-
-    })
-    .catch(err => console.log(err));
+sequelize
+  .sync()
+  .then((result) => {
+    app.listen(process.env.PORT || 3000);
+    console.log("Sequelize running at ", process.env.PORT);
+  })
+  .catch((err) => console.log(err));
 
 
 
